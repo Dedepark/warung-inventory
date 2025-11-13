@@ -4,10 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Warungku</title>
-    <!-- Favicon dan Manifest untuk PWA -->
     <link rel="icon" href="/icon.png" type="image/png">
     <link rel="manifest" href="/manifest.json">
-    <!-- Tema warna untuk browser -->
     <meta name="theme-color" content="#007bff">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -36,7 +34,7 @@
                 <h3>Tambah Barang Baru</h3>
                 <form id="form-tambah-barang">
                     <input type="text" id="input-nama" placeholder="Nama Barang" required>
-                    <input type="text" id="input-barcode" placeholder="Barcode (Gunakan tombol scan)" readonly>
+                    <input type="text" id="input-barcode" placeholder="Barcode (Ketik atau gunakan tombol scan)">
                     <input type="number" id="input-harga" placeholder="Harga Jual" required step="0.01">
                     <input type="number" id="input-stok" placeholder="Stok Awal" required>
                     <button type="submit"><i class="fas fa-plus"></i> Tambah Barang</button>
@@ -45,7 +43,6 @@
 
             <div class="card">
                 <h3>Daftar Barang</h3>
-                <!-- Kolom Pencarian -->
                 <div class="search-container">
                     <i class="fas fa-search"></i>
                     <input type="text" id="search-barang" placeholder="Cari berdasarkan nama barang...">
@@ -60,6 +57,17 @@
         <section id="kasir-view" class="view">
             <h2>Kasir</h2>
             
+            <div class="card">
+                <h3>Transaksi Manual</h3>
+                <div class="manual-transaksi-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-manual" placeholder="Cari nama atau barcode barang...">
+                    <div id="manual-search-results">
+                        <!-- Hasil pencarian manual akan muncul di sini -->
+                    </div>
+                </div>
+            </div>
+
             <div class="card">
                 <h3>Keranjang Belanja</h3>
                 <div id="cart-container">

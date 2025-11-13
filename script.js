@@ -9,14 +9,14 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let keranjang = [];
 let isScannerActive = false;
 let codeReader = null;
-let deferredPrompt = null; // Untuk PWA install
+let deferredPrompt = null;
+let semuaBarang = []; // Cache untuk semua data barang
 
 // --- FUNGSI UTILITAS ---
 function formatRupiah(angka) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
 }
 
-// Sistem Notifikasi
 function showNotification(message, type = 'info') {
     const container = document.getElementById('notification-container');
     const notif = document.createElement('div');
@@ -63,7 +63,6 @@ function checkInstallStatus() {
     } else {
         btnInstall.innerHTML = '<i class="fas fa-download"></i> Install';
         btnInstall.onclick = installPWA;
-        // Sembunyikan tombol jika tidak ada event prompt
         if (!deferredPrompt) {
             btnInstall.style.display = 'none';
         }
@@ -111,7 +110,7 @@ async function editBarang(event) {
     const { error } = await supabase.from('inventaris').update(updatedData).eq('id', id);
     if (error) { showNotification('Gagal memperbarui barang.', 'error'); console.error(error); } else {
         showNotification('Barang berhasil diperbarui!', 'success');
-        tutupModal(); tampilkanInventaris();
+        tutupModal(); await loadSemuaBarang(); tampilkanInventaris();
     }
 }
 
@@ -121,22 +120,26 @@ async function hapusBarangDariModal() {
     const { error } = await supabase.from('inventaris').delete().eq('id', id);
     if (error) { showNotification('Gagal menghapus barang.', 'error'); console.error(error); } else {
         showNotification('Barang berhasil dihapus!', 'success');
-        tutupModal(); tampilkanInventaris();
+        tutupModal(); await loadSemuaBarang(); tampilkanInventaris();
     }
 }
 
 // --- FITUR INVENTARIS ---
+async function loadSemuaBarang() {
+    const { data, error } = await supabase.from('inventaris').select('*');
+    if (error) { console.error(error); return; }
+    semuaBarang = data;
+}
+
 async function tampilkanInventaris() {
     const container = document.getElementById('barang-list-container');
     container.innerHTML = '<p>Memuat data...</p>';
-    const { data, error } = await supabase.from('inventaris').select('*').order('created_at', { ascending: false });
-    if (error) { console.error(error); showNotification('Gagal memuat data.', 'error'); return; }
+    if (semuaBarang.length === 0) { container.innerHTML = '<p>Belum ada barang.</p>'; return; }
     container.innerHTML = '';
-    if (data.length === 0) { container.innerHTML = '<p>Belum ada barang.</p>'; return; }
-    data.forEach(barang => {
+    semuaBarang.forEach(barang => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'barang-item';
-        itemDiv.dataset.nama = barang.nama_barang.toLowerCase(); // Untuk pencarian
+        itemDiv.dataset.nama = barang.nama_barang.toLowerCase();
         itemDiv.innerHTML = `
             <span class="nama-barang">${barang.nama_barang}</span>
             <button class="btn-detail" onclick="window.tampilkanDetailBarang(${barang.id})"><i class="fas fa-search"></i></button>
@@ -157,11 +160,11 @@ async function tambahBarang(e) {
     if (error) { showNotification(error.message, 'error'); } else { 
         showNotification('Barang berhasil ditambahkan!', 'success'); 
         form.reset(); 
-        tampilkanInventaris(); 
+        await loadSemuaBarang(); tampilkanInventaris();
     }
 }
 
-// --- FITUR PENCARIAN ---
+// --- PENCARIAN ---
 function setupPencarian() {
     const searchInput = document.getElementById('search-barang');
     searchInput.addEventListener('input', (e) => {
@@ -169,19 +172,52 @@ function setupPencarian() {
         const items = document.querySelectorAll('#barang-list-container .barang-item');
         items.forEach(item => {
             const namaBarang = item.dataset.nama;
-            if (namaBarang.includes(searchTerm)) {
-                item.style.display = 'flex';
-            } else {
-                item.style.display = 'none';
-            }
+            item.style.display = namaBarang.includes(searchTerm) ? 'flex' : 'none';
         });
     });
 }
 
-// --- FITUR KASIR & SCANNER (ZXING) ---
-async function prosesBarangTerscan(bc) {
-    const { data: barang, error } = await supabase.from('inventaris').select('*').eq('barcode', bc).single();
-    if (error || !barang) { showNotification(`Barcode ${bc} tidak ditemukan!`, 'error'); return; }
+// --- TRANSAKSI MANUAL ---
+function setupManualTransaksi() {
+    const searchInput = document.getElementById('search-manual');
+    const resultsContainer = document.getElementById('manual-search-results');
+
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        if (searchTerm.length < 2) {
+            resultsContainer.classList.remove('show');
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        const filteredBarang = semuaBarang.filter(barang =>
+            barang.nama_barang.toLowerCase().includes(searchTerm) ||
+            barang.barcode.includes(searchTerm)
+        );
+
+        resultsContainer.innerHTML = '';
+        if (filteredBarang.length > 0) {
+            resultsContainer.classList.add('show');
+            filteredBarang.forEach(barang => {
+                const item = document.createElement('div');
+                item.className = 'manual-result-item';
+                item.textContent = `${barang.nama_barang} (Stok: ${barang.stok})`;
+                item.onclick = () => {
+                    tambahKeKeranjang(barang);
+                    searchInput.value = '';
+                    resultsContainer.classList.remove('show');
+                    resultsContainer.innerHTML = '';
+                };
+                resultsContainer.appendChild(item);
+            });
+        } else {
+            resultsContainer.classList.remove('show');
+        }
+    });
+}
+
+// --- KERANJANG ---
+function tambahKeKeranjang(barang) {
     if (barang.stok <= 0) { showNotification(`Stok ${barang.nama_barang} habis!`, 'error'); return; }
     const item = keranjang.find(i => i.id === barang.id);
     if (item) { item.jumlah++; } else { keranjang.push({ ...barang, jumlah: 1 }); }
@@ -189,12 +225,51 @@ async function prosesBarangTerscan(bc) {
     updateTampilanKeranjang();
 }
 
+async function updateJumlahDiKeranjang(barcode, perubahan) {
+    const item = keranjang.find(i => i.barcode === barcode);
+    if (!item) return;
+
+    const jumlahBaru = item.jumlah + perubahan;
+    if (jumlahBaru <= 0) {
+        keranjang = keranjang.filter(i => i.barcode !== barcode);
+    } else {
+        // Cek stok terkini di database
+        const { data: barangDb, error } = await supabase.from('inventaris').select('stok').eq('barcode', barcode).single();
+        if (error || !barangDb) { showNotification('Gagal memverifikasi stok.', 'error'); return; }
+        if (jumlahBaru > barangDb.stok) { showNotification('Stok tidak mencukupi!', 'error'); return; }
+        item.jumlah = jumlahBaru;
+    }
+    updateTampilanKeranjang();
+}
+
 function updateTampilanKeranjang() {
     const list = document.getElementById('cart-list'); const totalEl = document.getElementById('cart-total');
     if (keranjang.length === 0) { list.innerHTML = '<li>Kosong.</li>'; totalEl.textContent = '0.00'; return; }
     list.innerHTML = ''; let total = 0;
-    keranjang.forEach(item => { const sub = item.harga_jual * item.jumlah; total += sub; list.innerHTML += `<li><span>${item.nama_barang} (x${item.jumlah})</span><span>${formatRupiah(sub)}</span></li>`; });
+    keranjang.forEach(item => {
+        const sub = item.harga_jual * item.jumlah; total += sub;
+        list.innerHTML += `
+            <li>
+                <div class="cart-item-details">
+                    <span>${item.nama_barang}</span>
+                </div>
+                <div class="cart-item-quantity">
+                    <button onclick="updateJumlahDiKeranjang('${item.barcode}', -1)">-</button>
+                    <span>${item.jumlah}</span>
+                    <button onclick="updateJumlahDiKeranjang('${item.barcode}', 1)">+</button>
+                </div>
+                <span>${formatRupiah(sub)}</span>
+            </li>
+        `;
+    });
     totalEl.textContent = total.toFixed(2).replace('.', ',');
+}
+
+// --- SCANNER ---
+async function prosesBarangTerscan(bc) {
+    const barang = semuaBarang.find(b => b.barcode === bc);
+    if (!barang) { showNotification(`Barcode ${bc} tidak ditemukan!`, 'error'); return; }
+    tambahKeKeranjang(barang);
 }
 
 // Scanner Global (Overlay Melayang)
@@ -208,7 +283,8 @@ async function toggleGlobalScanner() {
         btn.innerHTML = '<i class="fas fa-barcode"></i>';
         btn.classList.remove('scanning');
         const overlay = document.getElementById('floating-scanner-overlay');
-        if (overlay) document.body.removeChild(overlay);
+        if (overlay) { document.body.removeChild(overlay); }
+
     } else {
         const overlay = document.createElement('div');
         overlay.id = 'floating-scanner-overlay';
@@ -216,6 +292,7 @@ async function toggleGlobalScanner() {
         document.body.appendChild(overlay);
         const videoElement = document.getElementById('video-zxing-global');
         codeReader = new ZXing.BrowserMultiFormatReader();
+        
         codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
             if (result) {
                 if (isInventarisView) {
@@ -228,6 +305,7 @@ async function toggleGlobalScanner() {
             }
             if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
         });
+        
         isScannerActive = true;
         btn.innerHTML = '<i class="fas fa-stop"></i>';
         btn.classList.add('scanning');
@@ -245,12 +323,14 @@ async function bayar() {
         await supabase.from('inventaris').update({ stok: b.stok - i.jumlah }).eq('id', i.id);
     }
     showNotification(`Pembayaran berhasil! Total: ${formatRupiah(total)}`, 'success');
-    keranjang = []; updateTampilanKeranjang(); tampilkanInventaris();
+    keranjang = []; updateTampilanKeranjang(); await loadSemuaBarang(); tampilkanInventaris();
 }
 
 // --- EVENT LISTENERS ---
-document.addEventListener('DOMContentLoaded', () => {
-    // Menu dropdown
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadSemuaBarang();
+    tampilkanInventaris(); updateTampilanKeranjang(); setupPencarian(); setupManualTransaksi(); checkInstallStatus();
+    
     document.querySelector('.menu-btn').addEventListener('click', () => {
         document.querySelector('.menu-dropdown').style.display = 
             document.querySelector('.menu-dropdown').style.display === 'block' ? 'none' : 'block';
@@ -263,6 +343,4 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-hapus-juga').addEventListener('click', hapusBarangDariModal);
     document.getElementById('btn-bayar').addEventListener('click', bayar);
     document.getElementById('btn-scan-float').addEventListener('click', toggleGlobalScanner);
-    
-    tampilkanInventaris(); updateTampilanKeranjang(); setupPencarian(); checkInstallStatus();
 });
