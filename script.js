@@ -233,7 +233,6 @@ async function updateJumlahDiKeranjang(barcode, perubahan) {
     if (jumlahBaru <= 0) {
         keranjang = keranjang.filter(i => i.barcode !== barcode);
     } else {
-        // Cek stok terkini di database
         const { data: barangDb, error } = await supabase.from('inventaris').select('stok').eq('barcode', barcode).single();
         if (error || !barangDb) { showNotification('Gagal memverifikasi stok.', 'error'); return; }
         if (jumlahBaru > barangDb.stok) { showNotification('Stok tidak mencukupi!', 'error'); return; }
@@ -254,9 +253,9 @@ function updateTampilanKeranjang() {
                     <span>${item.nama_barang}</span>
                 </div>
                 <div class="cart-item-quantity">
-                    <button onclick="updateJumlahDiKeranjang('${item.barcode}', -1)">-</button>
+                    <button onclick="window.updateJumlahDiKeranjang('${item.barcode}', -1)">-</button>
                     <span>${item.jumlah}</span>
-                    <button onclick="updateJumlahDiKeranjang('${item.barcode}', 1)">+</button>
+                    <button onclick="window.updateJumlahDiKeranjang('${item.barcode}', 1)">+</button>
                 </div>
                 <span>${formatRupiah(sub)}</span>
             </li>
@@ -272,7 +271,6 @@ async function prosesBarangTerscan(bc) {
     tambahKeKeranjang(barang);
 }
 
-// Scanner Global (Overlay Melayang)
 async function toggleGlobalScanner() {
     const btn = document.getElementById('btn-scan-float');
     const isInventarisView = document.getElementById('inventaris-view').classList.contains('active');
@@ -343,4 +341,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-hapus-juga').addEventListener('click', hapusBarangDariModal);
     document.getElementById('btn-bayar').addEventListener('click', bayar);
     document.getElementById('btn-scan-float').addEventListener('click', toggleGlobalScanner);
+    
+    // PERBAIKAN: Ekspos fungsi ke window agar bisa dipanggil oleh onclick HTML
+    window.updateJumlahDiKeranjang = updateJumlahDiKeranjang;
 });
