@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Warungku</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Library Font Awesome untuk Ikon Profesional -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Library ZXing untuk scan barcode -->
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 </head>
 <body>
@@ -20,19 +23,12 @@
             
             <div class="card">
                 <h3>Tambah Barang Baru</h3>
-                <!-- Area scanner untuk tambah barang dipindah ke atas -->
-                <div id="scanner-container-tambah" class="scanner-hidden">
-                    <video id="video-zxing-tambah"></video>
-                </div>
                 <form id="form-tambah-barang">
-                    <div class="input-group">
-                        <input type="text" id="input-nama" placeholder="Nama Barang" required>
-                        <button type="button" id="btn-scan-barcode-tambah">📷</button>
-                    </div>
-                    <input type="text" id="input-barcode" placeholder="Barcode (Ketik atau Scan)" readonly>
+                    <input type="text" id="input-nama" placeholder="Nama Barang" required>
+                    <input type="text" id="input-barcode" placeholder="Barcode (Gunakan tombol scan)" readonly>
                     <input type="number" id="input-harga" placeholder="Harga Jual" required step="0.01">
                     <input type="number" id="input-stok" placeholder="Stok Awal" required>
-                    <button type="submit">➕ Tambah Barang</button>
+                    <button type="submit"><i class="fas fa-plus"></i> Tambah Barang</button>
                 </form>
             </div>
 
@@ -58,7 +54,7 @@
                         <strong>Total: Rp <span id="cart-total">0.00</span></strong>
                     </div>
                 </div>
-                <button id="btn-bayar" class="bayar-button">💵 Bayar</button>
+                <button id="btn-bayar" class="bayar-button"><i class="fas fa-cash-register"></i> Bayar</button>
             </div>
         </section>
     </main>
@@ -79,8 +75,8 @@
                 <label for="edit-stok">Stok:</label>
                 <input type="number" id="edit-stok" required>
                 <div class="modal-actions">
-                    <button type="submit" class="btn-primary">💾 Simpan Perubahan</button>
-                    <button type="button" id="btn-hapus-juga" class="btn-danger">🗑️ Hapus Barang</button>
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Simpan</button>
+                    <button type="button" id="btn-hapus-juga" class="btn-danger"><i class="fas fa-trash"></i> Hapus</button>
                 </div>
             </form>
         </div>
@@ -89,12 +85,12 @@
     <!-- KONTAINER NOTIFIKASI -->
     <div id="notification-container"></div>
 
-    <!-- TOMBOL SCAN MELAYANG -->
-    <button id="btn-scan-kasir-float" class="floating-btn">📷 Scan</button>
+    <!-- TOMBOL SCAN MELAYANG GLOBAL -->
+    <button id="btn-scan-float" class="floating-btn"><i class="fas fa-barcode"></i></button>
 
     <nav class="bottom-nav">
-        <button id="nav-inventaris" class="nav-button active">📦 Inventaris</button>
-        <button id="nav-kasir" class="nav-button">💳 Kasir</button>
+        <button id="nav-inventaris" class="nav-button active"><i class="fas fa-box"></i> Inventaris</button>
+        <button id="nav-kasir" class="nav-button"><i class="fas fa-credit-card"></i> Kasir</button>
     </nav>
 
     <script type="module" src="script.js"></script>

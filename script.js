@@ -9,7 +9,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let keranjang = [];
 let isScannerActive = false;
 let codeReader = null;
-let codeReaderTambah = null;
 
 // --- FUNGSI UTILITAS ---
 function formatRupiah(angka) {
@@ -23,9 +22,7 @@ function showNotification(message, type = 'info') {
     notif.className = `notification notif-${type}`;
     notif.textContent = message;
     container.appendChild(notif);
-    // Trigger reflow untuk animasi
     setTimeout(() => notif.classList.add('show'), 10);
-    // Hapus notif setelah 3 detik
     setTimeout(() => {
         notif.classList.remove('show');
         setTimeout(() => container.removeChild(notif), 300);
@@ -51,7 +48,8 @@ function tutupModal() {
     modal.style.display = "none";
 }
 
-async function tampilkanDetailBarang(id) {
+// Buat fungsi ini global agar bisa dipanggil dari onclick di HTML
+window.tampilkanDetailBarang = async function(id) {
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('id', id).single();
     if (error) {
         showNotification('Gagal mengambil data barang.', 'error');
@@ -111,9 +109,10 @@ async function tampilkanInventaris() {
     data.forEach(barang => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'barang-item';
+        // Perbaikan: Menggunakan window.tampilkanDetailBarang agar bisa dipanggil dari onclick
         itemDiv.innerHTML = `
             <span class="nama-barang">${barang.nama_barang}</span>
-            <button class="btn-detail" onclick="tampilkanDetailBarang(${barang.id})">🔍</button>
+            <button class="btn-detail" onclick="window.tampilkanDetailBarang(${barang.id})"><i class="fas fa-search"></i></button>
         `;
         container.appendChild(itemDiv);
     });
@@ -161,54 +160,42 @@ function updateTampilanKeranjang() {
     totalEl.textContent = total.toFixed(2).replace('.', ',');
 }
 
-// Scanner untuk Kasir (Tombol Melayang)
-async function toggleScanner() {
+// Scanner Global (melayang)
+async function toggleGlobalScanner() {
+    const btn = document.getElementById('btn-scan-float');
+    const isInventarisView = document.getElementById('inventaris-view').classList.contains('active');
+
     if (isScannerActive) {
-        console.log("Menghentikan scanner ZXing...");
         if (codeReader) { await codeReader.reset(); }
         isScannerActive = false;
-        document.getElementById('btn-scan-kasir-float').innerHTML = '📷 Scan';
+        btn.innerHTML = '<i class="fas fa-barcode"></i>';
     } else {
-        console.log("Memulai scanner ZXing...");
         codeReader = new ZXing.BrowserMultiFormatReader();
-        codeReader.decodeFromVideoDevice(undefined, null, (result, err) => {
+        let targetVideoId = isInventarisView ? 'video-zxing-tambah' : 'video-zxing';
+        
+        // Buat container video sementara
+        const videoContainer = document.createElement('div');
+        videoContainer.id = 'temp-video-container';
+        videoContainer.innerHTML = `<video id="${targetVideoId}" style="width:100%; height:100%; object-fit:cover;"></video>`;
+        document.body.appendChild(videoContainer);
+        videoContainer.style.position='fixed'; videoContainer.style.top='0'; videoContainer.style.left='0'; videoContainer.style.width='100vw'; videoContainer.style.height='100vh'; videoContainer.style.zIndex='999';
+        
+        const videoElement = document.getElementById(targetVideoId);
+
+        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
             if (result) {
-                console.log('ZXing berhasil mendeteksi:', result.text);
-                toggleScanner(); // Hentikan scanner
-                prosesBarangTerscan(result.text);
+                if (isInventarisView) {
+                    document.getElementById('input-barcode').value = result.text;
+                    showNotification('Barcode berhasil discan!', 'success');
+                } else {
+                    prosesBarangTerscan(result.text);
+                }
+                toggleGlobalScanner(); // Hentikan scanner
             }
             if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
         });
         isScannerActive = true;
-        document.getElementById('btn-scan-kasir-float').innerHTML = '⏹️ Stop';
-    }
-}
-
-// Scanner untuk Tambah Barang
-async function toggleScannerTambahBarang() {
-    const container = document.getElementById('scanner-container-tambah');
-    const button = document.getElementById('btn-scan-barcode-tambah');
-    const barcodeInput = document.getElementById('input-barcode');
-
-    if (container.classList.contains('scanner-hidden')) {
-        container.classList.remove('scanner-hidden');
-        const videoElement = document.getElementById('video-zxing-tambah');
-        codeReaderTambah = new ZXing.BrowserMultiFormatReader();
-        codeReaderTambah.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
-            if (result) {
-                console.log('Scanner Tambah Barang mendeteksi:', result.text);
-                barcodeInput.value = result.text;
-                showNotification('Barcode berhasil discan!', 'success');
-                toggleScannerTambahBarang(); // Hentikan scanner
-            }
-            if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
-        });
-        button.innerHTML = '❌';
-    } else {
-        if (codeReaderTambah) { await codeReaderTambah.reset(); }
-        container.classList.add('scanner-hidden');
-        container.innerHTML = '<video id="video-zxing-tambah"></video>'; // Reset video element
-        button.innerHTML = '📷';
+        btn.innerHTML = '<i class="fas fa-stop"></i>';
     }
 }
 
@@ -217,7 +204,7 @@ async function bayar() {
     const total = keranjang.reduce((t, i) => t + (i.harga_jual * i.jumlah), 0);
     const items = keranjang.map(i => ({ id: i.id, nama_barang: i.nama_barang, jumlah: i.jumlah, harga_satuan: i.harga_jual }));
     const { error: tErr } = await supabase.from('transaksi').insert([{ items, total_harga: total }]);
-    if (tErr) { showNotification('Gagal simpan transaksi.', 'error'); return; }
+    if (tErr) { showNotification('Gagal menyimpan transaksi.', 'error'); return; }
     for (const i of keranjang) {
         const { data: b } = await supabase.from('inventaris').select('stok').eq('id', i.id).single();
         await supabase.from('inventaris').update({ stok: b.stok - i.jumlah }).eq('id', i.id);
@@ -234,8 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-edit-barang').addEventListener('submit', editBarang);
     document.getElementById('btn-hapus-juga').addEventListener('click', hapusBarangDariModal);
     document.getElementById('btn-bayar').addEventListener('click', bayar);
-    document.getElementById('btn-scan-barcode-tambah').addEventListener('click', toggleScannerTambahBarang);
-    document.getElementById('btn-scan-kasir-float').addEventListener('click', toggleScanner);
+    document.getElementById('btn-scan-float').addEventListener('click', toggleGlobalScanner);
     
     tampilkanInventaris(); updateTampilanKeranjang();
 });
