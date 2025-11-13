@@ -9,6 +9,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let keranjang = [];
 let isScannerActive = false;
 let codeReader = null;
+let deferredPrompt = null; // Untuk PWA install
 
 // --- FUNGSI UTILITAS ---
 function formatRupiah(angka) {
@@ -29,9 +30,48 @@ function showNotification(message, type = 'info') {
     }, 3000);
 }
 
+// --- FITUR PWA ---
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btnInstall = document.getElementById('btn-install-pwa');
+    btnInstall.style.display = 'block';
+    btnInstall.textContent = 'Install';
+});
+
+async function installPWA() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+        showNotification('Aplikasi berhasil diinstall!', 'success');
+    } else {
+        showNotification('Install dibatalkan.', 'error');
+    }
+    deferredPrompt = null;
+    document.getElementById('btn-install-pwa').style.display = 'none';
+}
+
+function checkInstallStatus() {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const btnInstall = document.getElementById('btn-install-pwa');
+    if (isStandalone) {
+        btnInstall.innerHTML = '<i class="fas fa-trash"></i> Uninstall';
+        btnInstall.onclick = () => {
+            showNotification('Untuk menghapus aplikasi, cari opsi "Hapus aplikasi" atau "Uninstall" di pengaturan browser/Perangkat Anda.', 'info');
+        };
+    } else {
+        btnInstall.innerHTML = '<i class="fas fa-download"></i> Install';
+        btnInstall.onclick = installPWA;
+        // Sembunyikan tombol jika tidak ada event prompt
+        if (!deferredPrompt) {
+            btnInstall.style.display = 'none';
+        }
+    }
+}
+
 // --- MANAJEMEN VIEW ---
 function tampilkanView(viewName) {
-    // Jika scanner aktif, matikan dulu saat pindah halaman
     if (isScannerActive) {
         toggleGlobalScanner();
     }
@@ -44,21 +84,13 @@ function tampilkanView(viewName) {
 // --- MODAL DETAIL BARANG ---
 const modal = document.getElementById('modal-detail-barang');
 const span = document.getElementsByClassName("close-btn")[0];
-
 span.onclick = function() { tutupModal(); }
 window.onclick = function(event) { if (event.target == modal) { tutupModal(); } }
-
-function tutupModal() {
-    modal.style.display = "none";
-}
+function tutupModal() { modal.style.display = "none"; }
 
 window.tampilkanDetailBarang = async function(id) {
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('id', id).single();
-    if (error) {
-        showNotification('Gagal mengambil data barang.', 'error');
-        console.error(error);
-        return;
-    }
+    if (error) { showNotification('Gagal mengambil data barang.', 'error'); console.error(error); return; }
     document.getElementById('edit-id').value = barang.id;
     document.getElementById('edit-nama').value = barang.nama_barang;
     document.getElementById('edit-barcode').value = barang.barcode;
@@ -77,13 +109,9 @@ async function editBarang(event) {
         stok: parseInt(document.getElementById('edit-stok').value)
     };
     const { error } = await supabase.from('inventaris').update(updatedData).eq('id', id);
-    if (error) {
-        showNotification('Gagal memperbarui barang.', 'error');
-        console.error(error);
-    } else {
+    if (error) { showNotification('Gagal memperbarui barang.', 'error'); console.error(error); } else {
         showNotification('Barang berhasil diperbarui!', 'success');
-        tutupModal();
-        tampilkanInventaris();
+        tutupModal(); tampilkanInventaris();
     }
 }
 
@@ -91,13 +119,9 @@ async function hapusBarangDariModal() {
     const id = document.getElementById('edit-id').value;
     if (!confirm('Yakin ingin menghapus barang ini secara permanen?')) return;
     const { error } = await supabase.from('inventaris').delete().eq('id', id);
-    if (error) {
-        showNotification('Gagal menghapus barang.', 'error');
-        console.error(error);
-    } else {
+    if (error) { showNotification('Gagal menghapus barang.', 'error'); console.error(error); } else {
         showNotification('Barang berhasil dihapus!', 'success');
-        tutupModal();
-        tampilkanInventaris();
+        tutupModal(); tampilkanInventaris();
     }
 }
 
@@ -112,6 +136,7 @@ async function tampilkanInventaris() {
     data.forEach(barang => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'barang-item';
+        itemDiv.dataset.nama = barang.nama_barang.toLowerCase(); // Untuk pencarian
         itemDiv.innerHTML = `
             <span class="nama-barang">${barang.nama_barang}</span>
             <button class="btn-detail" onclick="window.tampilkanDetailBarang(${barang.id})"><i class="fas fa-search"></i></button>
@@ -136,18 +161,28 @@ async function tambahBarang(e) {
     }
 }
 
+// --- FITUR PENCARIAN ---
+function setupPencarian() {
+    const searchInput = document.getElementById('search-barang');
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const items = document.querySelectorAll('#barang-list-container .barang-item');
+        items.forEach(item => {
+            const namaBarang = item.dataset.nama;
+            if (namaBarang.includes(searchTerm)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+}
+
 // --- FITUR KASIR & SCANNER (ZXING) ---
 async function prosesBarangTerscan(bc) {
-    console.log('Mencari barcode:', bc);
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('barcode', bc).single();
-    if (error || !barang) { 
-        showNotification(`Barcode ${bc} tidak ditemukan!`, 'error'); 
-        return; 
-    }
-    if (barang.stok <= 0) { 
-        showNotification(`Stok ${barang.nama_barang} habis!`, 'error'); 
-        return; 
-    }
+    if (error || !barang) { showNotification(`Barcode ${bc} tidak ditemukan!`, 'error'); return; }
+    if (barang.stok <= 0) { showNotification(`Stok ${barang.nama_barang} habis!`, 'error'); return; }
     const item = keranjang.find(i => i.id === barang.id);
     if (item) { item.jumlah++; } else { keranjang.push({ ...barang, jumlah: 1 }); }
     showNotification(`${barang.nama_barang} ditambahkan ke keranjang`, 'success');
@@ -168,47 +203,31 @@ async function toggleGlobalScanner() {
     const isInventarisView = document.getElementById('inventaris-view').classList.contains('active');
 
     if (isScannerActive) {
-        console.log("Menghentikan scanner...");
         if (codeReader) { await codeReader.reset(); }
         isScannerActive = false;
         btn.innerHTML = '<i class="fas fa-barcode"></i>';
         btn.classList.remove('scanning');
-
-        // Hapus overlay
         const overlay = document.getElementById('floating-scanner-overlay');
-        if (overlay) {
-            document.body.removeChild(overlay);
-        }
-
+        if (overlay) document.body.removeChild(overlay);
     } else {
-        console.log("Memulai scanner...");
-        
-        // Buat overlay
         const overlay = document.createElement('div');
         overlay.id = 'floating-scanner-overlay';
         overlay.innerHTML = `<video id="video-zxing-global"></video>`;
         document.body.appendChild(overlay);
-
         const videoElement = document.getElementById('video-zxing-global');
         codeReader = new ZXing.BrowserMultiFormatReader();
-        
         codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
             if (result) {
-                console.log('ZXing berhasil mendeteksi:', result.text);
-                
                 if (isInventarisView) {
                     document.getElementById('input-barcode').value = result.text;
                     showNotification('Barcode berhasil discan!', 'success');
                 } else {
                     prosesBarangTerscan(result.text);
                 }
-                
-                // Matikan scanner setelah berhasil membaca
-                toggleGlobalScanner(); 
+                toggleGlobalScanner();
             }
             if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
         });
-        
         isScannerActive = true;
         btn.innerHTML = '<i class="fas fa-stop"></i>';
         btn.classList.add('scanning');
@@ -231,6 +250,12 @@ async function bayar() {
 
 // --- EVENT LISTENERS ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Menu dropdown
+    document.querySelector('.menu-btn').addEventListener('click', () => {
+        document.querySelector('.menu-dropdown').style.display = 
+            document.querySelector('.menu-dropdown').style.display === 'block' ? 'none' : 'block';
+    });
+
     document.getElementById('nav-inventaris').addEventListener('click', () => tampilkanView('inventaris'));
     document.getElementById('nav-kasir').addEventListener('click', () => tampilkanView('kasir'));
     document.getElementById('form-tambah-barang').addEventListener('submit', tambahBarang);
@@ -239,5 +264,5 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-bayar').addEventListener('click', bayar);
     document.getElementById('btn-scan-float').addEventListener('click', toggleGlobalScanner);
     
-    tampilkanInventaris(); updateTampilanKeranjang();
+    tampilkanInventaris(); updateTampilanKeranjang(); setupPencarian(); checkInstallStatus();
 });

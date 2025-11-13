@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Warungku</title>
+    <!-- Favicon dan Manifest untuk PWA -->
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="manifest" href="/manifest.json">
+    <!-- Tema warna untuk browser -->
+    <meta name="theme-color" content="#007bff">
     <link rel="stylesheet" href="style.css">
-    <!-- Library Font Awesome untuk Ikon Profesional -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Library ZXing untuk scan barcode -->
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 </head>
 <body>
@@ -19,7 +22,15 @@
     <main id="app-container">
         <!-- VIEW 1: MANAJEMEN INVENTARIS -->
         <section id="inventaris-view" class="view active">
-            <h2>Manajemen Inventaris</h2>
+            <div class="card-header">
+                <h2>Manajemen Inventaris</h2>
+                <div class="menu-container">
+                    <button class="menu-btn"><i class="fas fa-ellipsis-v"></i></button>
+                    <div class="menu-dropdown">
+                        <button id="btn-install-pwa"><i class="fas fa-download"></i> Install</button>
+                    </div>
+                </div>
+            </div>
             
             <div class="card">
                 <h3>Tambah Barang Baru</h3>
@@ -34,6 +45,11 @@
 
             <div class="card">
                 <h3>Daftar Barang</h3>
+                <!-- Kolom Pencarian -->
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-barang" placeholder="Cari berdasarkan nama barang...">
+                </div>
                 <div id="barang-list-container">
                     <!-- Daftar barang akan diisi oleh JavaScript -->
                 </div>
@@ -85,7 +101,7 @@
     <!-- KONTAINER NOTIFIKASI -->
     <div id="notification-container"></div>
 
-    <!-- TOMBOL SCAN MELAYANG GLOBAL -->
+    <!-- TOMBOL SCAN MELAYANG -->
     <button id="btn-scan-float" class="floating-btn"><i class="fas fa-barcode"></i></button>
 
     <nav class="bottom-nav">

@@ -1,0 +1,21 @@
+{
+  "name": "Warungku - Aplikasi Kasir",
+  "short_name": "Warungku",
+  "description": "Aplikasi kasir dan manajemen inventaris untuk warung",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

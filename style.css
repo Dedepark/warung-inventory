@@ -33,7 +33,11 @@ header {
     position: sticky;
     top: 0;
     z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
+header h1 { margin: 0; }
 
 main {
     padding: 1rem;
@@ -54,6 +58,14 @@ main {
     margin-bottom: 1.5rem;
     box-shadow: var(--box-shadow);
 }
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.card-header h2 { margin: 0; }
 
 h2, h3 {
     margin-bottom: 1rem;
@@ -108,6 +120,57 @@ button:disabled {
     transform: scale(1);
 }
 
+/* --- Menu Dropdown --- */
+.menu-container {
+    position: relative;
+}
+.menu-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+}
+.menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: white;
+    min-width: 160px;
+    box-shadow: var(--box-shadow);
+    border-radius: var(--border-radius);
+    z-index: 101;
+}
+.menu-dropdown button {
+    width: 100%;
+    background: none;
+    color: var(--dark-color);
+    border-radius: 0;
+    text-align: left;
+    padding: 0.8rem 1rem;
+}
+.menu-dropdown button:hover {
+    background-color: var(--light-color);
+}
+
+/* --- Pencarian --- */
+.search-container {
+    position: relative;
+    margin-bottom: 1rem;
+}
+.search-container i {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--secondary-color);
+}
+.search-container input {
+    padding-left: 2.5rem; /* Beri ruang untuk ikon */
+}
+
 /* --- Daftar Barang --- */
 #barang-list-container {
     display: flex;
@@ -124,12 +187,10 @@ button:disabled {
     border-radius: var(--border-radius);
     border-left: 5px solid var(--primary-color);
 }
-
 .barang-item .nama-barang {
     font-weight: 600;
     font-size: 1.1rem;
 }
-
 .barang-item .btn-detail {
     background: none;
     border: none;
@@ -194,10 +255,10 @@ button:disabled {
     display: none;
 }
 
-/* --- Overlay Kamera Melayang (Baru) --- */
+/* --- Overlay Kamera Melayang --- */
 #floating-scanner-overlay {
     position: fixed;
-    top: 80px; /* Di bawah header */
+    top: 80px;
     right: 20px;
     width: 200px;
     height: 150px;
@@ -212,7 +273,6 @@ button:disabled {
     height: 100%;
     object-fit: cover;
 }
-
 
 /* --- Modal --- */
 .modal {
