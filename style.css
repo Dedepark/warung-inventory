@@ -7,7 +7,7 @@
     --light-color: #f8f9fa;
     --dark-color: #343a40;
     --border-radius: 12px;
-    --box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    --box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
 * {
@@ -20,8 +20,8 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: #e9ecef;
     color: var(--dark-color);
-    padding-bottom: 80px; /* Ruang untuk bottom nav yang lebih besar */
-    overflow-x: hidden; /* Cegah scroll horizontal */
+    padding-bottom: 80px;
+    overflow-x: hidden;
 }
 
 header {
@@ -43,7 +43,6 @@ main {
 .view {
     display: none;
 }
-
 .view.active {
     display: block;
 }
@@ -71,6 +70,7 @@ form {
 .input-group {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
 }
 
 .input-group input {
@@ -82,7 +82,7 @@ input, button, select {
     border-radius: var(--border-radius);
     border: 1px solid #ccc;
     font-size: 1rem;
-    min-height: 48px; /* Standar aksesibilitas tap target */
+    min-height: 48px;
 }
 
 input:focus, select:focus {
@@ -99,15 +99,12 @@ button {
     font-weight: bold;
     transition: background-color 0.2s, transform 0.1s;
 }
-
 button:hover {
     background-color: #0056b3;
 }
-
 button:active {
     transform: scale(0.98);
 }
-
 button:disabled {
     background-color: var(--secondary-color);
     cursor: not-allowed;
@@ -118,68 +115,49 @@ button:disabled {
     background-color: var(--success-color);
     flex-shrink: 0;
     padding: 0.9rem 1.2rem;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
 }
 #btn-scan-barcode-tambah:hover {
     background-color: #218838;
 }
 
-/* --- Table --- */
-.table-container {
-    overflow-x: auto; /* Buat table bisa di-scroll horizontal */
-    -webkit-overflow-scrolling: touch; /* Smooth scroll di iOS */
+/* --- Daftar Barang (Baru) --- */
+#barang-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
-table {
-    width: 100%;
-    min-width: 600px; /* Lebar minimum agar tidak hancur */
-    border-collapse: collapse;
-    margin-top: 1rem;
-}
-
-th, td {
-    padding: 0.8rem;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    font-size: 0.9rem;
-    word-wrap: break-word;
-}
-
-th {
+.barang-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
     background-color: var(--light-color);
+    border-radius: var(--border-radius);
+    border-left: 5px solid var(--primary-color);
+}
+.barang-item .nama-barang {
     font-weight: 600;
+    font-size: 1.1rem;
+}
+.barang-item .btn-detail {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--primary-color);
+    padding: 0.5rem;
 }
 
 /* --- Kasir & Cart --- */
-#scanner-container, #scanner-container-tambah {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    border: 2px dashed #ccc;
-    border-radius: var(--border-radius);
-    position: relative;
-    overflow: hidden;
-    background-color: #000;
-    margin-bottom: 1rem;
-}
-
-#scanner-container video, #scanner-container-tambah video {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.scanner-hidden {
-    display: none;
-}
-
 #cart-list {
     list-style: none;
     margin-bottom: 1rem;
     padding: 0;
 }
-
 #cart-list li {
     display: flex;
     justify-content: space-between;
@@ -188,14 +166,12 @@ th {
     border-bottom: 1px solid #eee;
     font-size: 1rem;
 }
-
 .cart-total {
     font-size: 1.3rem;
     text-align: right;
     padding-top: 1rem;
     border-top: 2px solid var(--dark-color);
 }
-
 .bayar-button {
     width: 100%;
     background-color: var(--success-color);
@@ -206,6 +182,126 @@ th {
 }
 .bayar-button:hover {
     background-color: #218838;
+}
+
+/* --- Scanner --- */
+#scanner-container, #scanner-container-tambah {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border: 2px dashed #ccc;
+    border-radius: var(--border-radius);
+    position: relative;
+    overflow: hidden;
+    background-color: #000;
+    margin-bottom: 1rem;
+}
+#scanner-container video, #scanner-container-tambah video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.scanner-hidden {
+    display: none;
+}
+
+/* --- Modal --- */
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 1000; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.6);
+}
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto; 
+    padding: 2rem;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 500px;
+    border-radius: var(--border-radius);
+    position: relative;
+}
+.close-btn {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 25px;
+    font-size: 28px;
+    font-weight: bold;
+}
+.close-btn:hover,
+.close-btn:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+.btn-primary { background-color: var(--primary-color); }
+.btn-danger { background-color: var(--danger-color); }
+
+/* --- Notifikasi --- */
+#notification-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+}
+.notification {
+    padding: 1rem 1.5rem;
+    border-radius: var(--border-radius);
+    color: white;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    box-shadow: var(--box-shadow);
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+.notification.show {
+    opacity: 1;
+}
+.notif-success {
+    background-color: var(--success-color);
+}
+.notif-error {
+    background-color: var(--danger-color);
+}
+
+/* --- Tombol Melayang --- */
+.floating-btn {
+    position: fixed;
+    bottom: 100px; /* Atur agar tidak tertutup bottom nav */
+    right: 20px;
+    z-index: 100;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: var(--success-color);
+    color: white;
+    border: none;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: transform 0.2s, background-color 0.2s;
+}
+.floating-btn:hover {
+    background-color: #218838;
+    transform: scale(1.1);
+}
+.floating-btn:active {
+    transform: scale(0.95);
 }
 
 /* --- Bottom Navigation --- */
@@ -222,7 +318,6 @@ th {
     z-index: 100;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
 }
-
 .nav-button {
     background: none;
     border: none;
@@ -232,7 +327,6 @@ th {
     flex-grow: 1;
     min-height: 60px;
 }
-
 .nav-button.active {
     color: var(--primary-color);
 }
