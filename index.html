@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Warung Inventory</title>
+    <title>Warungku</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Library untuk scan barcode -->
+    <!-- Library ZXing untuk scan barcode -->
     <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 </head>
 <body>
@@ -23,15 +23,21 @@
                 <h3>Tambah Barang Baru</h3>
                 <form id="form-tambah-barang">
                     <input type="text" id="input-nama" placeholder="Nama Barang" required>
-                    <input type="text" id="input-barcode" placeholder="Barcode (Ketik atau Scan)">
-                    <button type="button" id="btn-scan-barcode-tambah">📷 Scan Barcode</button>
+                    <div class="input-group">
+                        <input type="text" id="input-barcode" placeholder="Barcode (Ketik atau Scan)" readonly>
+                        <button type="button" id="btn-scan-barcode-tambah">📷 Scan</button>
+                    </div>
                     <input type="number" id="input-harga" placeholder="Harga Jual" required step="0.01">
                     <input type="number" id="input-stok" placeholder="Stok Awal" required>
                     <button type="submit">➕ Tambah Barang</button>
                 </form>
+                <!-- Area scanner untuk tambah barang -->
+                <div id="scanner-container-tambah" class="scanner-hidden">
+                    <video id="video-zxing-tambah"></video>
+                </div>
             </div>
 
-            <div class="card">
+            <div class="card table-container">
                 <h3>Daftar Barang</h3>
                 <table id="tabel-inventaris">
                     <thead>

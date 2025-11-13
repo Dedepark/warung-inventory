@@ -9,6 +9,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let keranjang = [];
 let isScannerActive = false;
 let codeReader = null;
+let codeReaderTambah = null;
 
 // --- FUNGSI UTILITAS ---
 function formatRupiah(angka) {
@@ -61,10 +62,9 @@ async function hapusBarang(id) {
 
 // --- FITUR KASIR & SCANNER (ZXING) ---
 async function prosesBarangTerscan(bc) {
-    console.log('ZXing membaca barcode:', bc);
-    showAlert(`Mencari barcode: ${bc}`);
+    console.log('Mencari barcode:', bc);
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('barcode', bc).single();
-    if (error || !barang) { showAlert(`Barcode ${bc} tidak ditemukan!`); return; }
+    if (error || !barang) { console.error(`Barcode ${bc} tidak ditemukan!`); return; }
     if (barang.stok <= 0) { showAlert(`Stok ${barang.nama_barang} habis!`); return; }
     const item = keranjang.find(i => i.id === barang.id);
     if (item) { item.jumlah++; } else { keranjang.push({ ...barang, jumlah: 1 }); }
@@ -78,12 +78,11 @@ function updateTampilanKeranjang() {
     totalEl.textContent = total.toFixed(2).replace('.', ',');
 }
 
+// Scanner untuk Kasir
 async function toggleScanner() {
     if (isScannerActive) {
         console.log("Menghentikan scanner ZXing...");
-        if (codeReader) {
-            await codeReader.reset();
-        }
+        if (codeReader) { await codeReader.reset(); }
         isScannerActive = false;
         document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan';
         document.getElementById('scanner-container').innerHTML = '<p>Klik tombol untuk mulai.</p>';
@@ -91,23 +90,48 @@ async function toggleScanner() {
         console.log("Memulai scanner ZXing...");
         document.getElementById('scanner-container').innerHTML = '<video id="video-zxing"></video>';
         const videoElement = document.getElementById('video-zxing');
-        
         codeReader = new ZXing.BrowserMultiFormatReader();
         codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
             if (result) {
                 console.log('ZXing berhasil mendeteksi:', result.text);
-                // Hentikan scanner agar tidak double scan
-                toggleScanner(); 
+                toggleScanner();
                 prosesBarangTerscan(result.text);
             }
-            if (err && !(err instanceof ZXing.NotFoundException)) {
-                console.error(err);
-            }
+            if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
         });
         isScannerActive = true;
         document.getElementById('btn-toggle-scanner').textContent = '⏹️ Hentikan Scan';
     }
 }
+
+// Scanner untuk Tambah Barang
+async function toggleScannerTambahBarang() {
+    const container = document.getElementById('scanner-container-tambah');
+    const button = document.getElementById('btn-scan-barcode-tambah');
+    const barcodeInput = document.getElementById('input-barcode');
+
+    if (container.classList.contains('scanner-hidden')) {
+        container.classList.remove('scanner-hidden');
+        container.innerHTML = '<video id="video-zxing-tambah"></video>';
+        const videoElement = document.getElementById('video-zxing-tambah');
+        codeReaderTambah = new ZXing.BrowserMultiFormatReader();
+        codeReaderTambah.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
+            if (result) {
+                console.log('Scanner Tambah Barang mendeteksi:', result.text);
+                barcodeInput.value = result.text;
+                toggleScannerTambahBarang();
+            }
+            if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
+        });
+        button.textContent = '❌ Tutup';
+    } else {
+        if (codeReaderTambah) { await codeReaderTambah.reset(); }
+        container.classList.add('scanner-hidden');
+        container.innerHTML = '';
+        button.textContent = '📷 Scan';
+    }
+}
+
 
 async function bayar() {
     if (keranjang.length === 0) { showAlert('Keranjang kosong!'); return; }
@@ -130,6 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-tambah-barang').addEventListener('submit', tambahBarang);
     document.getElementById('btn-toggle-scanner').addEventListener('click', toggleScanner);
     document.getElementById('btn-bayar').addEventListener('click', bayar);
-    document.getElementById('btn-scan-barcode-tambah').addEventListener('click', () => { const bc = prompt('Masukkan barcode manual:'); if (bc) document.getElementById('input-barcode').value = bc; });
+    document.getElementById('btn-scan-barcode-tambah').addEventListener('click', toggleScannerTambahBarang);
     tampilkanInventaris(); updateTampilanKeranjang();
 });
