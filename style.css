@@ -108,7 +108,7 @@ button:disabled {
     transform: scale(1);
 }
 
-/* --- Daftar Barang (Baru) --- */
+/* --- Daftar Barang --- */
 #barang-list-container {
     display: flex;
     flex-direction: column;
@@ -193,6 +193,26 @@ button:disabled {
 .scanner-hidden {
     display: none;
 }
+
+/* --- Overlay Kamera Melayang (Baru) --- */
+#floating-scanner-overlay {
+    position: fixed;
+    top: 80px; /* Di bawah header */
+    right: 20px;
+    width: 200px;
+    height: 150px;
+    z-index: 999;
+    border: 3px solid white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+#floating-scanner-overlay video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 
 /* --- Modal --- */
 .modal {
@@ -284,11 +304,13 @@ button:disabled {
     transition: transform 0.2s, background-color 0.2s;
 }
 .floating-btn:hover {
-    background-color: #218838;
     transform: scale(1.1);
 }
 .floating-btn:active {
     transform: scale(0.95);
+}
+.floating-btn.scanning {
+    background-color: var(--danger-color);
 }
 
 /* --- Bottom Navigation --- */

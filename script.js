@@ -31,6 +31,10 @@ function showNotification(message, type = 'info') {
 
 // --- MANAJEMEN VIEW ---
 function tampilkanView(viewName) {
+    // Jika scanner aktif, matikan dulu saat pindah halaman
+    if (isScannerActive) {
+        toggleGlobalScanner();
+    }
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.nav-button').forEach(b => b.classList.remove('active'));
     document.getElementById(`${viewName}-view`).classList.add('active');
@@ -48,7 +52,6 @@ function tutupModal() {
     modal.style.display = "none";
 }
 
-// Buat fungsi ini global agar bisa dipanggil dari onclick di HTML
 window.tampilkanDetailBarang = async function(id) {
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('id', id).single();
     if (error) {
@@ -109,7 +112,6 @@ async function tampilkanInventaris() {
     data.forEach(barang => {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'barang-item';
-        // Perbaikan: Menggunakan window.tampilkanDetailBarang agar bisa dipanggil dari onclick
         itemDiv.innerHTML = `
             <span class="nama-barang">${barang.nama_barang}</span>
             <button class="btn-detail" onclick="window.tampilkanDetailBarang(${barang.id})"><i class="fas fa-search"></i></button>
@@ -160,42 +162,56 @@ function updateTampilanKeranjang() {
     totalEl.textContent = total.toFixed(2).replace('.', ',');
 }
 
-// Scanner Global (melayang)
+// Scanner Global (Overlay Melayang)
 async function toggleGlobalScanner() {
     const btn = document.getElementById('btn-scan-float');
     const isInventarisView = document.getElementById('inventaris-view').classList.contains('active');
 
     if (isScannerActive) {
+        console.log("Menghentikan scanner...");
         if (codeReader) { await codeReader.reset(); }
         isScannerActive = false;
         btn.innerHTML = '<i class="fas fa-barcode"></i>';
-    } else {
-        codeReader = new ZXing.BrowserMultiFormatReader();
-        let targetVideoId = isInventarisView ? 'video-zxing-tambah' : 'video-zxing';
-        
-        // Buat container video sementara
-        const videoContainer = document.createElement('div');
-        videoContainer.id = 'temp-video-container';
-        videoContainer.innerHTML = `<video id="${targetVideoId}" style="width:100%; height:100%; object-fit:cover;"></video>`;
-        document.body.appendChild(videoContainer);
-        videoContainer.style.position='fixed'; videoContainer.style.top='0'; videoContainer.style.left='0'; videoContainer.style.width='100vw'; videoContainer.style.height='100vh'; videoContainer.style.zIndex='999';
-        
-        const videoElement = document.getElementById(targetVideoId);
+        btn.classList.remove('scanning');
 
+        // Hapus overlay
+        const overlay = document.getElementById('floating-scanner-overlay');
+        if (overlay) {
+            document.body.removeChild(overlay);
+        }
+
+    } else {
+        console.log("Memulai scanner...");
+        
+        // Buat overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'floating-scanner-overlay';
+        overlay.innerHTML = `<video id="video-zxing-global"></video>`;
+        document.body.appendChild(overlay);
+
+        const videoElement = document.getElementById('video-zxing-global');
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        
         codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
             if (result) {
+                console.log('ZXing berhasil mendeteksi:', result.text);
+                
                 if (isInventarisView) {
                     document.getElementById('input-barcode').value = result.text;
                     showNotification('Barcode berhasil discan!', 'success');
                 } else {
                     prosesBarangTerscan(result.text);
                 }
-                toggleGlobalScanner(); // Hentikan scanner
+                
+                // Matikan scanner setelah berhasil membaca
+                toggleGlobalScanner(); 
             }
             if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
         });
+        
         isScannerActive = true;
         btn.innerHTML = '<i class="fas fa-stop"></i>';
+        btn.classList.add('scanning');
     }
 }
 
