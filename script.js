@@ -1,5 +1,6 @@
 // --- INISIALISASI SUPABASE ---
-// GANTI DENGAN DATA DARI PROYEK SUPABASE KAMU
+// PERINGATAN: Key ini sudah tidak aman karena diposting di publik!
+// GANTI dengan key yang baru setelah merevoke yang lama.
 const SUPABASE_URL = 'https://ftfuhffjqppksecdrspl.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0ZnVoZmZqcXBwa3NlY2Ryc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMTcwNzcsImV4cCI6MjA3ODU5MzA3N30.unTDoXFJPaavRwxNmRkAZgNRTn_-qYaSBalaHGo6pGU';
 
@@ -125,7 +126,7 @@ function onBarcodeDetected(result) {
 async function prosesBarangTerscan(barcode) {
     showAlert(`Mencari barcode: ${barcode}`);
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('barcode', barcode).single();
-    if (error || !barang) { showAlert(`Barang tidak ditemukan!`); return; }
+    if (error || !barang) { showAlert(`Barang dengan barcode ${barcode} tidak ditemukan!`); return; }
     if (barang.stok <= 0) { showAlert(`Stok untuk ${barang.nama_barang} habis!`); return; }
     tambahKeKeranjang(barang);
 }
@@ -153,7 +154,6 @@ function updateTampilanKeranjang() {
 }
 
 function initScanner() {
-    // PERBAIKAN: Konfigurasi QuaggaJS yang lebih sederhana dan stabil
     Quagga.init({
         inputStream: {
             name: "Live",
