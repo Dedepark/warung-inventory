@@ -1,5 +1,4 @@
 // --- INISIALISASI SUPABASE ---
-// GANTI DENGAN KEY YANG BARU! Key ini tidak aman!
 const SUPABASE_URL = 'https://ftfuhffjqppksecdrspl.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0ZnVoZmZqcXBwa3NlY2Ryc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMTcwNzcsImV4cCI6MjA3ODU5MzA3N30.unTDoXFJPaavRwxNmRkAZgNRTn_-qYaSBalaHGo6pGU';
 
@@ -9,6 +8,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // --- STATE GLOBAL ---
 let keranjang = [];
 let isScannerActive = false;
+let codeReader = null;
 
 // --- FUNGSI UTILITAS ---
 function formatRupiah(angka) {
@@ -59,14 +59,10 @@ async function hapusBarang(id) {
     if (error) { showAlert('Gagal hapus.'); } else { showAlert('Barang dihapus.'); tampilkanInventaris(); }
 }
 
-// --- FITUR KASIR & SCANNER ---
-function onBarcodeDetected(result) {
-    console.log('Barcode terdeteksi:', result.codeResult.code);
-    Quagga.stop(); isScannerActive = false;
-    document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan';
-    prosesBarangTerscan(result.codeResult.code);
-}
+// --- FITUR KASIR & SCANNER (ZXING) ---
 async function prosesBarangTerscan(bc) {
+    console.log('ZXing membaca barcode:', bc);
+    showAlert(`Mencari barcode: ${bc}`);
     const { data: barang, error } = await supabase.from('inventaris').select('*').eq('barcode', bc).single();
     if (error || !barang) { showAlert(`Barcode ${bc} tidak ditemukan!`); return; }
     if (barang.stok <= 0) { showAlert(`Stok ${barang.nama_barang} habis!`); return; }
@@ -81,21 +77,38 @@ function updateTampilanKeranjang() {
     keranjang.forEach(item => { const sub = item.harga_jual * item.jumlah; total += sub; list.innerHTML += `<li><span>${item.nama_barang} (x${item.jumlah})</span><span>${formatRupiah(sub)}</span></li>`; });
     totalEl.textContent = total.toFixed(2).replace('.', ',');
 }
-function initScanner() {
-    Quagga.init({
-        inputStream: { name: "Live", type: "LiveStream", target: document.querySelector('#scanner-container'), constraints: { width: 640, height: 480, facingMode: "environment" } },
-        decoder: { readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"] }
-    }, function(err) {
-        if (err) { console.error(err); showAlert('Gagal akses kamera.'); return; }
-        Quagga.onDetected(onBarcodeDetected);
-        Quagga.start(); isScannerActive = true;
+
+async function toggleScanner() {
+    if (isScannerActive) {
+        console.log("Menghentikan scanner ZXing...");
+        if (codeReader) {
+            await codeReader.reset();
+        }
+        isScannerActive = false;
+        document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan';
+        document.getElementById('scanner-container').innerHTML = '<p>Klik tombol untuk mulai.</p>';
+    } else {
+        console.log("Memulai scanner ZXing...");
+        document.getElementById('scanner-container').innerHTML = '<video id="video-zxing"></video>';
+        const videoElement = document.getElementById('video-zxing');
+        
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
+            if (result) {
+                console.log('ZXing berhasil mendeteksi:', result.text);
+                // Hentikan scanner agar tidak double scan
+                toggleScanner(); 
+                prosesBarangTerscan(result.text);
+            }
+            if (err && !(err instanceof ZXing.NotFoundException)) {
+                console.error(err);
+            }
+        });
+        isScannerActive = true;
         document.getElementById('btn-toggle-scanner').textContent = '⏹️ Hentikan Scan';
-    });
+    }
 }
-function toggleScanner() {
-    if (isScannerActive) { Quagga.stop(); isScannerActive = false; document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan'; document.getElementById('scanner-container').innerHTML = '<p>Klik tombol untuk mulai.</p>'; }
-    else { initScanner(); }
-}
+
 async function bayar() {
     if (keranjang.length === 0) { showAlert('Keranjang kosong!'); return; }
     const total = keranjang.reduce((t, i) => t + (i.harga_jual * i.jumlah), 0);
