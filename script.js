@@ -15,10 +15,6 @@ function formatRupiah(angka) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
 }
 
-function showLoading(element) {
-    element.innerHTML = '<tr><td colspan="5">Memuat data...</td></tr>';
-}
-
 function showAlert(message, type = 'info') {
     alert(message);
 }
@@ -27,7 +23,6 @@ function showAlert(message, type = 'info') {
 function tampilkanView(viewName) {
     document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
     document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
-
     document.getElementById(`${viewName}-view`).classList.add('active');
     document.getElementById(`nav-${viewName}`).classList.add('active');
 }
@@ -35,7 +30,7 @@ function tampilkanView(viewName) {
 // --- FITUR INVENTARIS ---
 async function tampilkanInventaris() {
     const tabelBody = document.querySelector('#tabel-inventaris tbody');
-    showLoading(tabelBody);
+    tabelBody.innerHTML = '<tr><td colspan="5">Memuat data...</td></tr>';
 
     const { data: inventaris, error } = await supabase
         .from('inventaris')
@@ -74,18 +69,13 @@ async function tampilkanInventaris() {
 async function tambahBarang(event) {
     event.preventDefault();
     const form = event.target;
-
-    const barangBaru = {
+    const { error } = await supabase.from('inventaris').insert([{
         nama_barang: form['input-nama'].value,
         barcode: form['input-barcode'].value,
         harga_jual: parseFloat(form['input-harga'].value),
         stok: parseInt(form['input-stok'].value),
-    };
-
-    const { error } = await supabase.from('inventaris').insert([barangBaru]);
-
+    }]);
     if (error) {
-        console.error('Gagal menambah barang:', error);
         showAlert('Gagal menambah barang: ' + error.message);
     } else {
         showAlert('Barang berhasil ditambahkan!');
@@ -97,33 +87,20 @@ async function tambahBarang(event) {
 async function restokBarang(id) {
     const jumlah = prompt("Masukkan jumlah stok yang ditambah:");
     if (!jumlah || isNaN(jumlah) || parseInt(jumlah) <= 0) return;
-
-    const { data: barangSaatIni, error: errorFetch } = await supabase.from('inventaris').select('stok').eq('id', id).single();
-    if (errorFetch) {
-        showAlert('Gagal mengambil data stok.');
-        return;
-    }
-
+    const { data: barangSaatIni } = await supabase.from('inventaris').select('stok').eq('id', id).single();
+    if (!barangSaatIni) { showAlert('Gagal mengambil data stok.'); return; }
     const stokBaru = barangSaatIni.stok + parseInt(jumlah);
-
     const { error } = await supabase.from('inventaris').update({ stok: stokBaru }).eq('id', id);
-    
-    if (error) {
-        showAlert('Gagal melakukan restok.');
-    } else {
-        showAlert(`Stok berhasil ditambah ${jumlah}. Total stok sekarang: ${stokBaru}`);
+    if (error) { showAlert('Gagal melakukan restok.'); } else {
+        showAlert(`Stok berhasil ditambah ${jumlah}. Total: ${stokBaru}`);
         tampilkanInventaris();
     }
 }
 
 async function hapusBarang(id) {
     if (!confirm('Yakin ingin menghapus barang ini?')) return;
-
     const { error } = await supabase.from('inventaris').delete().eq('id', id);
-
-    if (error) {
-        showAlert('Gagal menghapus barang.');
-    } else {
+    if (error) { showAlert('Gagal menghapus barang.'); } else {
         showAlert('Barang berhasil dihapus.');
         tampilkanInventaris();
     }
@@ -131,184 +108,99 @@ async function hapusBarang(id) {
 
 // --- FITUR KASIR & SCANNER ---
 function onBarcodeDetected(result) {
-    // PERBAIKAN: Tambahkan log untuk debugging dan validasi result
-    console.log('Hasil deteksi Quagga:', result);
-    
+    console.log('Quagga onDetected triggered:', result); // LOG PENTING
     if (!isScannerActive) return;
+    if (!result || !result.codeResult) { console.warn('Tidak ada codeResult.'); return; }
     
-    // Pastikan result dan result.codeResult ada
-    if (!result || !result.codeResult) {
-        console.warn('Deteksi terjadi, tetapi tidak ada codeResult.');
-        return;
-    }
-
     const scannedBarcode = result.codeResult.code;
-    console.log('Barcode terdeteksi dan valid:', scannedBarcode);
+    console.log('Barcode terdeteksi:', scannedBarcode); // LOG PENTING
     
-    // Hentikan scanner agar tidak double scan
-    Quagga.stop();
-    isScannerActive = false;
+    Quagga.stop(); isScannerActive = false;
     document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan';
-
+    document.getElementById('scanner-container').innerHTML = ''; // Kosongkan view
+    
     prosesBarangTerscan(scannedBarcode);
 }
 
 async function prosesBarangTerscan(barcode) {
-    showAlert(`Mencari barang dengan barcode: ${barcode}`);
-    const { data: barang, error } = await supabase
-        .from('inventaris')
-        .select('*')
-        .eq('barcode', barcode)
-        .single();
-
-    if (error || !barang) {
-        showAlert(`Barang dengan barcode ${barcode} tidak ditemukan!`);
-        return;
-    }
-
-    if (barang.stok <= 0) {
-        showAlert(`Stok untuk ${barang.nama_barang} habis!`);
-        return;
-    }
-
+    showAlert(`Mencari barcode: ${barcode}`);
+    const { data: barang, error } = await supabase.from('inventaris').select('*').eq('barcode', barcode).single();
+    if (error || !barang) { showAlert(`Barang tidak ditemukan!`); return; }
+    if (barang.stok <= 0) { showAlert(`Stok untuk ${barang.nama_barang} habis!`); return; }
     tambahKeKeranjang(barang);
 }
 
 function tambahKeKeranjang(barang) {
     const itemDiKeranjang = keranjang.find(item => item.id === barang.id);
-
     if (itemDiKeranjang) {
-        if (itemDiKeranjang.jumlah < barang.stok) {
-            itemDiKeranjang.jumlah++;
-        } else {
-            showAlert(`Stok untuk ${itemDiKeranjang.nama_barang} tidak mencukupi!`);
-            return;
-        }
-    } else {
-        keranjang.push({ ...barang, jumlah: 1 });
-    }
+        if (itemDiKeranjang.jumlah < barang.stok) { itemDiKeranjang.jumlah++; }
+        else { showAlert(`Stok ${itemDiKeranjang.nama_barang} tidak mencukupi!`); return; }
+    } else { keranjang.push({ ...barang, jumlah: 1 }); }
     updateTampilanKeranjang();
 }
 
 function updateTampilanKeranjang() {
-    const cartList = document.getElementById('cart-list');
-    const cartTotal = document.getElementById('cart-total');
-
-    if (keranjang.length === 0) {
-        cartList.innerHTML = '<li>Keranjang kosong.</li>';
-        cartTotal.textContent = '0.00';
-        return;
-    }
-
-    cartList.innerHTML = '';
-    let total = 0;
-
+    const cartList = document.getElementById('cart-list'); const cartTotal = document.getElementById('cart-total');
+    if (keranjang.length === 0) { cartList.innerHTML = '<li>Keranjang kosong.</li>'; cartTotal.textContent = '0.00'; return; }
+    cartList.innerHTML = ''; let total = 0;
     keranjang.forEach(item => {
-        const subtotal = item.harga_jual * item.jumlah;
-        total += subtotal;
-
+        const subtotal = item.harga_jual * item.jumlah; total += subtotal;
         const li = document.createElement('li');
-        li.innerHTML = `
-            <span>${item.nama_barang} (x${item.jumlah})</span>
-            <span>${formatRupiah(subtotal)}</span>
-        `;
+        li.innerHTML = `<span>${item.nama_barang} (x${item.jumlah})</span><span>${formatRupiah(subtotal)}</span>`;
         cartList.appendChild(li);
     });
-
     cartTotal.textContent = total.toFixed(2).replace('.', ',');
 }
 
 function initScanner() {
-    // PERBAIKAN: Konfigurasi QuaggaJS yang lebih robust untuk HP
+    // PERBAIKAN: Konfigurasi QuaggaJS yang lebih sederhana dan stabil
     Quagga.init({
         inputStream: {
             name: "Live",
             type: "LiveStream",
             target: document.querySelector('#scanner-container'),
             constraints: {
-                width: { min: 640, ideal: 1280, max: 1920 }, // PERBAIKAN: Berikan range resolusi
-                height: { min: 480, ideal: 720, max: 1080 },
-                facingMode: "environment", // Kamera belakang
-                aspectRatio: { min: 1, max: 2 }
+                width: 640,
+                height: 480,
+                facingMode: "environment"
             },
         },
-        locator: {
-            patchSize: "medium",
-            halfSample: true
-        },
-        numOfWorkers: navigator.hardwareConcurrency || 2, // PERBAIKAN: Optimasi performa
         decoder: {
-            readers: [
-                "ean_reader", // Paling umum untuk produk retail, diprioritaskan
-                "ean_8_reader",
-                "code_128_reader",
-                "code_39_reader",
-                "upc_reader",
-                "upc_e_reader",
-                "codabar_reader"
-            ]
+            readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"]
         },
-        locate: true
     }, function(err) {
         if (err) {
             console.error('Quagga initialization failed:', err);
-            showAlert('Gagal mengakses kamera. Pastikan kamu memberikan izin dan coba refresh halaman.');
+            showAlert('Gagal mengakses kamera. Pastikan izin diberikan.');
             return;
         }
         console.log("Quagga berhasil diinisialisasi.");
-        Quagga.start();
-        isScannerActive = true;
+        Quagga.start(); isScannerActive = true;
         document.getElementById('btn-toggle-scanner').textContent = '⏹️ Hentikan Scan';
     });
 }
 
 function toggleScanner() {
     if (isScannerActive) {
-        Quagga.stop();
-        isScannerActive = false;
+        Quagga.stop(); isScannerActive = false;
         document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan';
         document.getElementById('scanner-container').innerHTML = '<p>Klik tombol di bawah untuk memulai scanner.</p>';
-    } else {
-        initScanner();
-    }
+    } else { initScanner(); }
 }
 
 async function bayar() {
-    if (keranjang.length === 0) {
-        showAlert('Keranjang masih kosong!');
-        return;
-    }
-
+    if (keranjang.length === 0) { showAlert('Keranjang masih kosong!'); return; }
     const totalHarga = keranjang.reduce((total, item) => total + (item.harga_jual * item.jumlah), 0);
-    const itemsToSave = keranjang.map(item => ({
-        id: item.id,
-        nama_barang: item.nama_barang,
-        jumlah: item.jumlah,
-        harga_satuan: item.harga_jual
-    }));
-
+    const itemsToSave = keranjang.map(item => ({ id: item.id, nama_barang: item.nama_barang, jumlah: item.jumlah, harga_satuan: item.harga_jual }));
     const { error: transaksiError } = await supabase.from('transaksi').insert([{ items: itemsToSave, total_harga: totalHarga }]);
-
-    if (transaksiError) {
-        showAlert('Gagal menyimpan transaksi.');
-        console.error(transaksiError);
-        return;
-    }
-
+    if (transaksiError) { showAlert('Gagal menyimpan transaksi.'); return; }
     for (const item of keranjang) {
         const { data: barangSaatIni } = await supabase.from('inventaris').select('stok').eq('id', item.id).single();
-        const stokBaru = barangSaatIni.stok - item.jumlah;
-        
-        const { error: updateError } = await supabase.from('inventaris').update({ stok: stokBaru }).eq('id', item.id);
-        if (updateError) {
-            console.error(`Gagal update stok untuk ${item.nama_barang}:`, updateError);
-        }
+        const { error: updateError } = await supabase.from('inventaris').update({ stok: barangSaatIni.stok - item.jumlah }).eq('id', item.id);
+        if (updateError) console.error(`Gagal update stok:`, updateError);
     }
-
     showAlert(`Pembayaran berhasil! Total: ${formatRupiah(totalHarga)}`);
-    keranjang = [];
-    updateTampilanKeranjang();
-    tampilkanInventaris();
+    keranjang = []; updateTampilanKeranjang(); tampilkanInventaris();
 }
 
 // --- EVENT LISTENERS & INISIALISASI ---
@@ -318,14 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-tambah-barang').addEventListener('submit', tambahBarang);
     document.getElementById('btn-toggle-scanner').addEventListener('click', toggleScanner);
     document.getElementById('btn-bayar').addEventListener('click', bayar);
-    
     document.getElementById('btn-scan-barcode-tambah').addEventListener('click', () => {
-        const barcode = prompt('Masukkan nomor barcode secara manual:');
-        if (barcode) {
-            document.getElementById('input-barcode').value = barcode;
-        }
+        const barcode = prompt('Masukkan nomor barcode secara manual:'); if (barcode) { document.getElementById('input-barcode').value = barcode; }
     });
-
-    tampilkanInventaris();
-    updateTampilanKeranjang();
+    tampilkanInventaris(); updateTampilanKeranjang();
 });
