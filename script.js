@@ -1,6 +1,5 @@
 // --- INISIALISASI SUPABASE ---
-// PERINGATAN: Key ini sudah tidak aman karena diposting di publik!
-// GANTI dengan key yang baru setelah merevoke yang lama.
+// PERINGATAN: Key ini akan segera di-revoke untuk keamanan!
 const SUPABASE_URL = 'https://ftfuhffjqppksecdrspl.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0ZnVoZmZqcXBwa3NlY2Ryc3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMTcwNzcsImV4cCI6MjA3ODU5MzA3N30.unTDoXFJPaavRwxNmRkAZgNRTn_-qYaSBalaHGo6pGU';
 
@@ -32,37 +31,13 @@ function tampilkanView(viewName) {
 async function tampilkanInventaris() {
     const tabelBody = document.querySelector('#tabel-inventaris tbody');
     tabelBody.innerHTML = '<tr><td colspan="5">Memuat data...</td></tr>';
-
-    const { data: inventaris, error } = await supabase
-        .from('inventaris')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error('Gagal mengambil inventaris:', error);
-        showAlert('Gagal memuat data inventaris.');
-        tabelBody.innerHTML = '<tr><td colspan="5">Gagal memuat data.</td></tr>';
-        return;
-    }
-
+    const { data: inventaris, error } = await supabase.from('inventaris').select('*').order('created_at', { ascending: false });
+    if (error) { console.error('Gagal mengambil inventaris:', error); showAlert('Gagal memuat data.'); tabelBody.innerHTML = '<tr><td colspan="5">Gagal memuat data.</td></tr>'; return; }
     tabelBody.innerHTML = '';
-    if (inventaris.length === 0) {
-        tabelBody.innerHTML = '<tr><td colspan="5">Belum ada barang.</td></tr>';
-        return;
-    }
-
+    if (inventaris.length === 0) { tabelBody.innerHTML = '<tr><td colspan="5">Belum ada barang.</td></tr>'; return; }
     inventaris.forEach(barang => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${barang.nama_barang}</td>
-            <td>${barang.barcode || '-'}</td>
-            <td>${formatRupiah(barang.harga_jual)}</td>
-            <td>${barang.stok}</td>
-            <td>
-                <button onclick="restokBarang(${barang.id})">Restok</button>
-                <button onclick="hapusBarang(${barang.id})" style="background-color: var(--danger-color);">Hapus</button>
-            </td>
-        `;
+        row.innerHTML = `<td>${barang.nama_barang}</td><td>${barang.barcode || '-'}</td><td>${formatRupiah(barang.harga_jual)}</td><td>${barang.stok}</td><td><button onclick="restokBarang(${barang.id})">Restok</button><button onclick="hapusBarang(${barang.id})" style="background-color: var(--danger-color);">Hapus</button></td>`;
         tabelBody.appendChild(row);
     });
 }
@@ -70,19 +45,8 @@ async function tampilkanInventaris() {
 async function tambahBarang(event) {
     event.preventDefault();
     const form = event.target;
-    const { error } = await supabase.from('inventaris').insert([{
-        nama_barang: form['input-nama'].value,
-        barcode: form['input-barcode'].value,
-        harga_jual: parseFloat(form['input-harga'].value),
-        stok: parseInt(form['input-stok'].value),
-    }]);
-    if (error) {
-        showAlert('Gagal menambah barang: ' + error.message);
-    } else {
-        showAlert('Barang berhasil ditambahkan!');
-        form.reset();
-        tampilkanInventaris();
-    }
+    const { error } = await supabase.from('inventaris').insert([{ nama_barang: form['input-nama'].value, barcode: form['input-barcode'].value, harga_jual: parseFloat(form['input-harga'].value), stok: parseInt(form['input-stok'].value), }]);
+    if (error) { showAlert('Gagal menambah barang: ' + error.message); } else { showAlert('Barang berhasil ditambahkan!'); form.reset(); tampilkanInventaris(); }
 }
 
 async function restokBarang(id) {
@@ -92,34 +56,25 @@ async function restokBarang(id) {
     if (!barangSaatIni) { showAlert('Gagal mengambil data stok.'); return; }
     const stokBaru = barangSaatIni.stok + parseInt(jumlah);
     const { error } = await supabase.from('inventaris').update({ stok: stokBaru }).eq('id', id);
-    if (error) { showAlert('Gagal melakukan restok.'); } else {
-        showAlert(`Stok berhasil ditambah ${jumlah}. Total: ${stokBaru}`);
-        tampilkanInventaris();
-    }
+    if (error) { showAlert('Gagal melakukan restok.'); } else { showAlert(`Stok berhasil ditambah ${jumlah}. Total: ${stokBaru}`); tampilkanInventaris(); }
 }
 
 async function hapusBarang(id) {
     if (!confirm('Yakin ingin menghapus barang ini?')) return;
     const { error } = await supabase.from('inventaris').delete().eq('id', id);
-    if (error) { showAlert('Gagal menghapus barang.'); } else {
-        showAlert('Barang berhasil dihapus.');
-        tampilkanInventaris();
-    }
+    if (error) { showAlert('Gagal menghapus barang.'); } else { showAlert('Barang berhasil dihapus.'); tampilkanInventaris(); }
 }
 
 // --- FITUR KASIR & SCANNER ---
 function onBarcodeDetected(result) {
-    console.log('Quagga onDetected triggered:', result); // LOG PENTING
+    console.log('Quagga onDetected triggered:', result);
     if (!isScannerActive) return;
     if (!result || !result.codeResult) { console.warn('Tidak ada codeResult.'); return; }
-    
     const scannedBarcode = result.codeResult.code;
-    console.log('Barcode terdeteksi:', scannedBarcode); // LOG PENTING
-    
+    console.log('Barcode terdeteksi:', scannedBarcode);
     Quagga.stop(); isScannerActive = false;
     document.getElementById('btn-toggle-scanner').textContent = '📷 Mulai Scan';
-    document.getElementById('scanner-container').innerHTML = ''; // Kosongkan view
-    
+    document.getElementById('scanner-container').innerHTML = '';
     prosesBarangTerscan(scannedBarcode);
 }
 
@@ -133,10 +88,8 @@ async function prosesBarangTerscan(barcode) {
 
 function tambahKeKeranjang(barang) {
     const itemDiKeranjang = keranjang.find(item => item.id === barang.id);
-    if (itemDiKeranjang) {
-        if (itemDiKeranjang.jumlah < barang.stok) { itemDiKeranjang.jumlah++; }
-        else { showAlert(`Stok ${itemDiKeranjang.nama_barang} tidak mencukupi!`); return; }
-    } else { keranjang.push({ ...barang, jumlah: 1 }); }
+    if (itemDiKeranjang) { if (itemDiKeranjang.jumlah < barang.stok) { itemDiKeranjang.jumlah++; } else { showAlert(`Stok ${itemDiKeranjang.nama_barang} tidak mencukupi!`); return; } }
+    else { keranjang.push({ ...barang, jumlah: 1 }); }
     updateTampilanKeranjang();
 }
 
@@ -144,37 +97,35 @@ function updateTampilanKeranjang() {
     const cartList = document.getElementById('cart-list'); const cartTotal = document.getElementById('cart-total');
     if (keranjang.length === 0) { cartList.innerHTML = '<li>Keranjang kosong.</li>'; cartTotal.textContent = '0.00'; return; }
     cartList.innerHTML = ''; let total = 0;
-    keranjang.forEach(item => {
-        const subtotal = item.harga_jual * item.jumlah; total += subtotal;
-        const li = document.createElement('li');
-        li.innerHTML = `<span>${item.nama_barang} (x${item.jumlah})</span><span>${formatRupiah(subtotal)}</span>`;
-        cartList.appendChild(li);
-    });
+    keranjang.forEach(item => { const subtotal = item.harga_jual * item.jumlah; total += subtotal; const li = document.createElement('li'); li.innerHTML = `<span>${item.nama_barang} (x${item.jumlah})</span><span>${formatRupiah(subtotal)}</span>`; cartList.appendChild(li); });
     cartTotal.textContent = total.toFixed(2).replace('.', ',');
 }
 
 function initScanner() {
+    console.log("Memulai inisialisasi Quagga...");
     Quagga.init({
         inputStream: {
             name: "Live",
             type: "LiveStream",
             target: document.querySelector('#scanner-container'),
             constraints: {
-                width: 640,
-                height: 480,
+                width: { min: 640, ideal: 1280 },
+                height: { min: 480, ideal: 720 },
                 facingMode: "environment"
             },
         },
+        locator: {
+            patchSize: "medium",
+            halfSample: true
+        },
+        numOfWorkers: navigator.hardwareConcurrency || 4,
         decoder: {
             readers: ["ean_reader", "ean_8_reader", "code_128_reader", "code_39_reader", "upc_reader", "upc_e_reader"]
         },
+        locate: true
     }, function(err) {
-        if (err) {
-            console.error('Quagga initialization failed:', err);
-            showAlert('Gagal mengakses kamera. Pastikan izin diberikan.');
-            return;
-        }
-        console.log("Quagga berhasil diinisialisasi.");
+        if (err) { console.error('Quagga initialization failed:', err); showAlert('Gagal mengakses kamera. Pastikan izin diberikan.'); return; }
+        console.log("Quagga berhasil diinisialisasi. Scanner dimulai.");
         Quagga.start(); isScannerActive = true;
         document.getElementById('btn-toggle-scanner').textContent = '⏹️ Hentikan Scan';
     });
@@ -210,8 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-tambah-barang').addEventListener('submit', tambahBarang);
     document.getElementById('btn-toggle-scanner').addEventListener('click', toggleScanner);
     document.getElementById('btn-bayar').addEventListener('click', bayar);
-    document.getElementById('btn-scan-barcode-tambah').addEventListener('click', () => {
-        const barcode = prompt('Masukkan nomor barcode secara manual:'); if (barcode) { document.getElementById('input-barcode').value = barcode; }
-    });
+    document.getElementById('btn-scan-barcode-tambah').addEventListener('click', () => { const barcode = prompt('Masukkan nomor barcode secara manual:'); if (barcode) { document.getElementById('input-barcode').value = barcode; } });
     tampilkanInventaris(); updateTampilanKeranjang();
 });
