@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Warung Inventory</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Library untuk scan barcode -->
+    <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.2/dist/quagga.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>Warungku</h1>
+    </header>
+
+    <main id="app-container">
+        <!-- VIEW 1: MANAJEMEN INVENTARIS -->
+        <section id="inventaris-view" class="view active">
+            <h2>Manajemen Inventaris</h2>
+            
+            <div class="card">
+                <h3>Tambah Barang Baru</h3>
+                <form id="form-tambah-barang">
+                    <input type="text" id="input-nama" placeholder="Nama Barang" required>
+                    <input type="text" id="input-barcode" placeholder="Barcode (Ketik atau Scan)">
+                    <button type="button" id="btn-scan-barcode-tambah">📷 Scan Barcode</button>
+                    <input type="number" id="input-harga" placeholder="Harga Jual" required step="0.01">
+                    <input type="number" id="input-stok" placeholder="Stok Awal" required>
+                    <button type="submit">➕ Tambah Barang</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Daftar Barang</h3>
+                <table id="tabel-inventaris">
+                    <thead>
+                        <tr>
+                            <th>Nama</th>
+                            <th>Barcode</th>
+                            <th>Harga</th>
+                            <th>Stok</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data akan diisi oleh JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- VIEW 2: KASIR -->
+        <section id="kasir-view" class="view">
+            <h2>Kasir</h2>
+            
+            <div class="card">
+                <h3>Scanner Barang</h3>
+                <div id="scanner-container">
+                     <p>Klik tombol di bawah untuk memulai scanner.</p>
+                </div>
+                <button id="btn-toggle-scanner">📷 Mulai Scan</button>
+            </div>
+
+            <div class="card">
+                <h3>Keranjang Belanja</h3>
+                <div id="cart-container">
+                    <ul id="cart-list">
+                        <!-- Item akan diisi oleh JavaScript -->
+                    </ul>
+                    <div class="cart-total">
+                        <strong>Total: Rp <span id="cart-total">0.00</span></strong>
+                    </div>
+                </div>
+                <button id="btn-bayar" class="bayar-button">💵 Bayar</button>
+            </div>
+        </section>
+    </main>
+
+    <nav class="bottom-nav">
+        <button id="nav-inventaris" class="nav-button active">📦 Inventaris</button>
+        <button id="nav-kasir" class="nav-button">💳 Kasir</button>
+    </nav>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
